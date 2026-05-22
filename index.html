@@ -2064,10 +2064,12 @@ function updateBoss(lev, dt) {
       spawnBossProjectiles(boss);
     }
 
-    // Check Kael vs boss hitbox when flying fast
-    if ((gameState === 'FLYING') && boss.hitCooldown <= 0) {
-      const spd = Math.sqrt(kael.vx*kael.vx + kael.vy*kael.vy);
-      if (spd > 4 && circleAABB(kael.x, kael.y, KAEL_R,
+    // Check Kael vs boss hitbox when flying or swinging fast
+    if ((gameState === 'FLYING' || gameState === 'SWINGING') && boss.hitCooldown <= 0) {
+      const spd = gameState === 'FLYING'
+        ? Math.sqrt(kael.vx*kael.vx + kael.vy*kael.vy)
+        : Math.abs(kael.angVel) * kael.ropeLen;
+      if (spd > 3 && circleAABB(kael.x, kael.y, KAEL_R,
           boss.x - boss.w/2, boss.y - boss.h/2, boss.w, boss.h)) {
         boss.hp--;
         boss.hitCooldown = 60;
@@ -2542,7 +2544,16 @@ function update(dt) {
   if (gameState === 'WIN') {
     winTimer += dt;
     if (winTimer > 3 * 60) winTimer = 3 * 60; // cap
-    // Partículas de extracción
+    // Auto-avanza al siguiente nivel después de 2.5 segundos
+    if (winTimer > 150) {
+      if (currentLevel >= LEVELS.length - 1) {
+        resetGame();
+      } else {
+        currentLevel++;
+        startLevelTransition(currentLevel);
+      }
+      return;
+    }
     if (winTimer % 4 < dt * 2) {
       spawnExtractionParticles(kael.x, kael.y);
     }
