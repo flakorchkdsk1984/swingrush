@@ -52,7 +52,7 @@ resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 100));
 
-const GRAVITY      = 1.8;     // px/frame² a 60fps — arcade pesado
+const GRAVITY      = 2.4;     // px/frame² a 60fps — pesado y satisfactorio
 const FRAME_MS     = 16.667;  // ms por frame objetivo
 const KAEL_R       = 14;      // radio de Kael en px
 const MAX_GRAB     = 380;     // distancia máxima para engancharse
@@ -535,7 +535,36 @@ function releaseRope() {
   // Velocidad tangencial al soltar
   kael.vx =  kael.ropeLen * Math.cos(kael.angle) * kael.angVel;
   kael.vy = -kael.ropeLen * Math.sin(kael.angle) * kael.angVel;
-  dbg('RELEASE', `vx=${kael.vx.toFixed(2)} vy=${kael.vy.toFixed(2)} angle=${kael.angle.toFixed(3)}`);
+
+  // Boost de lanzamiento: cuanto más rápido el swing, más punch
+  const speed = Math.sqrt(kael.vx * kael.vx + kael.vy * kael.vy);
+  const boostFactor = 1.15 + Math.min(speed * 0.003, 0.2); // 1.15x–1.35x según velocidad
+  kael.vx *= boostFactor;
+  kael.vy *= boostFactor;
+
+  // Bono de elasticidad: si la cuerda estaba tensa al soltar, catapultar extra
+  const stretch = kael.ropeLen / (kael._originalRopeLen || kael.ropeLen);
+  if (stretch > 1.05) {
+    const tensionBoost = 1 + (stretch - 1.0) * 0.8;
+    kael.vx *= tensionBoost;
+    kael.vy *= tensionBoost;
+  }
+
+  // Squash/stretch en dirección de vuelo
+  const vLen = Math.sqrt(kael.vx * kael.vx + kael.vy * kael.vy);
+  if (vLen > 8) {
+    kael.squash    = 0.72;  // aplastado perpendicular → se estira en el eje del vuelo
+    kael.squashVel = 0;
+  }
+
+  // Micro-shake proporcional a velocidad de salida
+  if (vLen > 12) triggerShake(4, Math.min(vLen * 0.12, 3));
+
+  // Reset spring
+  kael.ropeVelStretch = 0;
+  kael._shortening    = false;
+
+  dbg('RELEASE', `vx=${kael.vx.toFixed(2)} vy=${kael.vy.toFixed(2)} boost=${boostFactor.toFixed(2)}`);
   playSound('release');
   gameState = 'FLYING';
 }
@@ -4089,9 +4118,21 @@ function update(dt) {
 
   if (gameState === 'FLYING') {
     const prevY = kael.y;
-    kael.vy += GRAVITY * dt;
+
+    // Gravedad variable: bajando = plena, subiendo = 88% (arco más natural)
+    const gScale = kael.vy >= 0 ? 1.0 : 0.88;
+    kael.vy += GRAVITY * gScale * dt;
+
+    // Cap de velocidad terminal para evitar caídas absurdas
+    const TERMINAL_VY = 28;
+    if (kael.vy > TERMINAL_VY) kael.vy = TERMINAL_VY;
+
+    // Micro drag aéreo horizontal (da sensación de peso en el arco)
+    kael.vx *= Math.pow(0.998, dt);
+
     kael.x  += kael.vx * dt;
     kael.y  += kael.vy * dt;
+
     // RUSH: slight extra downward pull (visual urgency, not gameplay-breaking)
     if (window.rushMode) kael.vy += 0.18;
     if (kael.vy > 0) checkPlatformCollision(lev, prevY);
