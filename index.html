@@ -1761,8 +1761,24 @@ function renderIntroScreen() {
   ctx.fillText('AÑO 2047 — EL COLAPSO GRAVITACIONAL', cx, cy + 95);
 }
 
+// Helper: rect redondeado compatible con todos los navegadores
+function roundRectPath(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
 function renderLevelSelectScreen() {
-  levelSelectAnim += 0.016;
+  // levelSelectAnim se actualiza en update(), no aquí
   levelCardRects = [];
 
   const cx = W * 0.5;
@@ -1838,16 +1854,14 @@ function renderLevelSelectScreen() {
     ctx.shadowColor = color;
     ctx.shadowBlur = 8 + 4 * Math.sin(t * 3 + i);
 
-    // Fondo de la card
+    // Fondo de la card (rect redondeado compatible con todos los navegadores)
     ctx.fillStyle = 'rgba(15,10,12,0.85)';
-    ctx.beginPath();
-    ctx.roundRect(cx2Anim, cy2, cardW, cardH, 6);
+    roundRectPath(ctx, cx2Anim, cy2, cardW, cardH, 6);
     ctx.fill();
 
     // Borde izquierdo coloreado
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(cx2Anim, cy2, 4, cardH, [3,0,0,3]);
+    roundRectPath(ctx, cx2Anim, cy2, 4, cardH, 3);
     ctx.fill();
 
     ctx.shadowBlur = 0;
@@ -1875,7 +1889,7 @@ function renderLevelSelectScreen() {
     ctx.lineWidth = 1;
     ctx.globalAlpha = cardAlpha * (0.15 + 0.12 * Math.sin(t * 2 + i * 0.9));
     ctx.beginPath();
-    ctx.roundRect(cx2Anim, cy2, cardW, cardH, 6);
+    roundRectPath(ctx, cx2Anim, cy2, cardW, cardH, 6);
     ctx.stroke();
 
     ctx.globalAlpha = 1;
