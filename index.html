@@ -427,6 +427,7 @@ const kael = {
   // Péndulo
   anchorX: 0, anchorY: 0,
   ropeLen: 200,
+  _originalRopeLen: 200, // longitud original al engancharse (para el mechanic de acorte)
   angle: 0,
   angVel: 0,
   // Visual
@@ -449,20 +450,46 @@ function updateSwinging(dt) {
   const angAcc = (-GRAVITY / kael.ropeLen) * Math.sin(kael.angle);
   kael.angVel += angAcc * dt;
 
-  // PUMP: mantener click/touch presionado acelera el swing
-  // Cuando el péndulo pasa por el punto más bajo (cerca de vertical),
-  // se aplica un impulso en la dirección actual del movimiento
+  // PUMP: mantener click/touch presionado acelera el swing Y acorta la cuerda
+  // - Pump: impulso angular en dirección del movimiento
+  // - Rope shorten: conservación de momento angular (L*ω = cte → ω sube al bajar L)
   if (inputDown) {
-    const PUMP_FORCE = 0.003; // fuerza de bombeo por frame
-    const MAX_ANGVEL = 0.22;  // límite de velocidad máxima
+    const PUMP_FORCE  = 0.002;   // impulso angular por frame (reducido, el acorte ya da energía)
+    const MAX_ANGVEL  = 0.28;    // límite de velocidad angular
+    const SHORTEN_SPD = 1.2;     // px/frame que se acorta la cuerda
+    const MIN_LEN     = 55;      // longitud mínima de cuerda
+
+    // Pump angular
     if (Math.abs(kael.angVel) < MAX_ANGVEL) {
       kael.angVel += Math.sign(kael.angVel || 1) * PUMP_FORCE * dt;
+    }
+
+    // Acortar cuerda con conservación de momento angular
+    if (kael.ropeLen > MIN_LEN) {
+      const oldLen    = kael.ropeLen;
+      const newLen    = Math.max(MIN_LEN, oldLen - SHORTEN_SPD * dt);
+      // L*ω = constante → nueva_ω = vieja_ω * oldLen / newLen
+      kael.angVel    *= oldLen / newLen;
+      // Clamp para no explotar
+      kael.angVel     = Math.max(-MAX_ANGVEL, Math.min(MAX_ANGVEL, kael.angVel));
+      kael.ropeLen    = newLen;
     }
   }
 
   kael.angle  += kael.angVel  * dt;
   kael.x = kael.anchorX + kael.ropeLen * Math.sin(kael.angle);
   kael.y = kael.anchorY + kael.ropeLen * Math.cos(kael.angle);
+
+  // Al soltar el botón, la cuerda se extiende gradualmente de vuelta
+  // (el jugador la "soltó", la cuerda cae por gravedad)
+  if (!inputDown && kael.ropeLen < kael._originalRopeLen) {
+    const EXTEND_SPD = 2.0;
+    const oldLen     = kael.ropeLen;
+    const newLen     = Math.min(kael._originalRopeLen, oldLen + EXTEND_SPD * dt);
+    // Al extender, ω baja (conservación inversa)
+    kael.angVel     *= oldLen / newLen;
+    kael.ropeLen     = newLen;
+  }
   // Log cada ~60 frames
   _swingLogTimer += dt;
   if (_swingLogTimer > 60) {
@@ -490,6 +517,7 @@ function grabAnchor(ax, ay) {
   kael.anchorX = ax;
   kael.anchorY = ay;
   kael.ropeLen = dist;
+  kael._originalRopeLen = dist; // longitud base para el mechanic de acorte
   // Ángulo desde vertical
   kael.angle  = Math.atan2(dx, dy);
   // Velocidad angular inicial desde velocidad volando
