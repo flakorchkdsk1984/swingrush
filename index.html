@@ -631,16 +631,32 @@ function updateParticles(dt) {
 let audioCtx = null;
 let ambGain  = null;
 
+let pendingMusicLevel = -1; // nivel en espera si audio no está listo
+
 function initAudio() {
   if (audioCtx) {
-    // Reanudar si fue suspendido por política de autoplay
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        // Reanudar música pendiente tras desbloqueo
+        if (pendingMusicLevel >= 0) {
+          MusicEngine.crossfade(pendingMusicLevel);
+          pendingMusicLevel = -1;
+        }
+      });
+    }
     return;
   }
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioCtx.resume().then(() => { startAmbient(); });
     audioReady = true;
+    audioCtx.resume().then(() => {
+      startAmbient();
+      // Arrancar música del nivel actual tras desbloqueo
+      if (pendingMusicLevel >= 0) {
+        MusicEngine.crossfade(pendingMusicLevel);
+        pendingMusicLevel = -1;
+      }
+    });
   } catch(e) { console.warn('Audio no disponible:', e); }
 }
 
@@ -1004,8 +1020,12 @@ const MusicEngine = (function () {
 
   api = {
     start: function(levelIndex) {
-      if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (!audioCtx) { pendingMusicLevel = levelIndex; return; }
+      if (audioCtx.state === 'suspended') {
+        pendingMusicLevel = levelIndex;
+        audioCtx.resume(); // el .then() en initAudio lo arrancará
+        return;
+      }
       stopAll();
       if (!masterGain) {
         masterGain = audioCtx.createGain();
@@ -1033,9 +1053,12 @@ const MusicEngine = (function () {
       activeLevel = -1;
     },
     crossfade: function(newLevel) {
-      if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      if (newLevel === activeLevel) return; // same level, keep playing
+      // Si audioCtx no existe o está suspendido, encolar y esperar
+      if (!audioCtx || audioCtx.state === 'suspended') {
+        pendingMusicLevel = newLevel;
+        return;
+      }
+      if (newLevel === activeLevel) return; // mismo nivel, seguir tocando
       if (activeLevel === -1 || !masterGain) { api.start(newLevel); return; }
       const now = audioCtx.currentTime;
       masterGain.gain.cancelScheduledValues(now);
