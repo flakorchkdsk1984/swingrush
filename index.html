@@ -411,6 +411,10 @@ let winTimer = 0;
 let bossEngaged = false;
 let bossHitFlash = 0;
 
+// Level select
+let levelCardRects = []; // [{x,y,w,h,idx}] — actualizado cada frame en renderLevelSelectScreen
+let levelSelectAnim = 0; // contador para animaciones del menú
+
 // === ENTIDADES ===
 
 // Kael – protagonista
@@ -926,6 +930,13 @@ const MusicEngine = (function () {
       droneFreq: 82.4, droneGain: 0.09,
       melody: [0, 2, 4, 5, 4, 2, 0, 2, 4, 2, 0, -1],
       instr: 'oud', tablaStyle: 'full'
+    },
+    { // 7 — MENÚ PRINCIPAL: Raga Durga, pentatónico brillante adictivo
+      scale: [1, 9/8, 5/4, 3/2, 5/3, 5/3, 5/3], root: 146.8, bpm: 116,
+      droneFreq: 73.4, droneGain: 0.055,
+      melody: [2, 4, 5, 4, 2, 0, 2, 4, 5, 7, 5, 4, 2, 4, 2, 0,
+               0, 2, 4, 2, 4, 5, 4, 2, 0, 2, 4, 5, 4, 2, 4, 2],
+      instr: 'bansuri', tablaStyle: 'fast'
     }
   ];
 
@@ -1750,6 +1761,138 @@ function renderIntroScreen() {
   ctx.fillText('AÑO 2047 — EL COLAPSO GRAVITACIONAL', cx, cy + 95);
 }
 
+function renderLevelSelectScreen() {
+  levelSelectAnim += 0.016;
+  levelCardRects = [];
+
+  const cx = W * 0.5;
+  const t  = levelSelectAnim;
+
+  // Fondo semi-oscuro
+  ctx.fillStyle = 'rgba(10,6,8,0.92)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Título
+  const titleSize = Math.min(W * 0.11, 48);
+  ctx.font = `bold ${titleSize}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = COL.rust;
+  ctx.shadowColor = COL.rust;
+  ctx.shadowBlur = 20 + 8 * Math.sin(t * 2);
+  ctx.fillText('SWINGRUSH', cx, H * 0.07);
+  ctx.shadowBlur = 0;
+
+  ctx.font = `${Math.min(W * 0.032, 13)}px monospace`;
+  ctx.fillStyle = COL.metal;
+  ctx.fillText('ELIGE TU DESTINO', cx, H * 0.13);
+
+  // Línea separadora
+  ctx.strokeStyle = 'rgba(216,90,48,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - W * 0.35, H * 0.16);
+  ctx.lineTo(cx + W * 0.35, H * 0.16);
+  ctx.stroke();
+
+  // Datos por nivel
+  const bossNames = ['LOBO','ÁGUILA','COCODRILO','SAPO','TIBURÓN','ARAÑA','PULPO'];
+  const bossIcons = ['🐺','🦅','🐊','🐸','🦈','🕷','🐙'];
+  const themeColors = [
+    '#D85A30','#4488CC','#9944EE','#44AA44','#DD2222','#AA6600','#00AACC'
+  ];
+
+  // Layout: 2 columnas
+  const cols    = 2;
+  const padX    = W * 0.04;
+  const cardW   = (W - padX * 3) / 2;
+  const cardH   = Math.min(H * 0.095, 72);
+  const gapY    = cardH * 0.22;
+  const startY  = H * 0.19;
+
+  for (let i = 0; i < LEVELS.length; i++) {
+    const col   = i % cols;
+    const row   = Math.floor(i / cols);
+    const lev   = LEVELS[i];
+    const color = themeColors[i];
+
+    // Centrar la última fila si es impar
+    let cx2;
+    const isLastSingle = (LEVELS.length % 2 === 1 && i === LEVELS.length - 1);
+    if (isLastSingle) {
+      cx2 = cx - cardW * 0.5;
+    } else {
+      cx2 = padX + col * (cardW + padX);
+    }
+    const cy2 = startY + row * (cardH + gapY);
+
+    // Animación de entrada por card (stagger)
+    const delay = i * 0.08;
+    const slideIn = Math.min(1, Math.max(0, (t - delay) * 5));
+    const cx2Anim = cx2 - (1 - slideIn) * W * 0.15;
+    const cardAlpha = slideIn;
+
+    ctx.globalAlpha = cardAlpha;
+
+    // Sombra/glow de la card
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8 + 4 * Math.sin(t * 3 + i);
+
+    // Fondo de la card
+    ctx.fillStyle = 'rgba(15,10,12,0.85)';
+    ctx.beginPath();
+    ctx.roundRect(cx2Anim, cy2, cardW, cardH, 6);
+    ctx.fill();
+
+    // Borde izquierdo coloreado
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.roundRect(cx2Anim, cy2, 4, cardH, [3,0,0,3]);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    // Número de nivel
+    ctx.font = `bold ${Math.min(cardH * 0.55, 32)}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    ctx.fillText(`${i+1}`, cx2Anim + 14, cy2 + cardH * 0.42);
+
+    // Nombre del nivel
+    const nameSize = Math.min(cardH * 0.28, 14);
+    ctx.font = `bold ${nameSize}px monospace`;
+    ctx.fillStyle = COL.ui;
+    ctx.fillText(lev.name, cx2Anim + 14 + Math.min(cardH * 0.55, 32) + 10, cy2 + cardH * 0.3);
+
+    // Boss
+    ctx.font = `${Math.min(cardH * 0.22, 11)}px monospace`;
+    ctx.fillStyle = color + 'cc';
+    ctx.fillText(`BOSS: ${bossIcons[i]} ${bossNames[i]}`, cx2Anim + 14 + Math.min(cardH * 0.55, 32) + 10, cy2 + cardH * 0.62);
+
+    // Glow en borde derecho pulsante
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = cardAlpha * (0.15 + 0.12 * Math.sin(t * 2 + i * 0.9));
+    ctx.beginPath();
+    ctx.roundRect(cx2Anim, cy2, cardW, cardH, 6);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+
+    // Guardar rect para detección de tap
+    levelCardRects.push({ x: cx2Anim, y: cy2, w: cardW, h: cardH, idx: i });
+  }
+
+  // Hint bottom
+  ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 3);
+  ctx.font = `${Math.min(W * 0.03, 12)}px monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = COL.dust;
+  ctx.fillText('TOCA UNA ETAPA PARA COMENZAR', cx, H * 0.97);
+  ctx.globalAlpha = 1;
+}
+
 function renderLevelTransition() {
   ctx.fillStyle = `rgba(0,0,0,${transitionAlpha})`;
   ctx.fillRect(0, 0, W, H);
@@ -1848,14 +1991,20 @@ function handleInput() {
 
   if (gameState === 'INTRO') {
     if (typewriterIdx < typewriterFull.length) {
-      // Primer toque: completar typewriter instantáneamente
       typewriterText = typewriterFull;
       typewriterIdx  = typewriterFull.length;
     } else {
-      // Segundo toque (o primero si ya terminó): avanzar al juego
+      // Ir a pantalla de selección de nivel
       playSound('ui');
-      startLevelTransition(0);
+      MusicEngine.crossfade(7); // música de menú
+      gameState = 'LEVEL_SELECT';
+      levelSelectAnim = 0;
     }
+    return;
+  }
+
+  if (gameState === 'LEVEL_SELECT') {
+    // La detección de card se hace en handleInputAt() con coordenadas
     return;
   }
 
@@ -1899,7 +2048,11 @@ function handleInput() {
   }
 }
 
-canvas.addEventListener('mousedown', () => { inputDown = true; handleInput(); });
+canvas.addEventListener('mousedown', (e) => {
+  inputDown = true;
+  handleInputAt(e.clientX, e.clientY);
+  handleInput();
+});
 canvas.addEventListener('mouseup',   () => {
   inputDown = false;
   if (gameState === 'SWINGING') releaseRope(); // soltar al levantar el click
@@ -1908,6 +2061,9 @@ canvas.addEventListener('mouseup',   () => {
 canvas.addEventListener('touchstart', (e) => {
   e.preventDefault();
   inputDown = true;
+  if (e.touches.length > 0) {
+    handleInputAt(e.touches[0].clientX, e.touches[0].clientY);
+  }
   handleInput();
 }, { passive: false });
 
@@ -1916,6 +2072,17 @@ canvas.addEventListener('touchend', (e) => {
   inputDown = false;
   if (gameState === 'SWINGING') releaseRope(); // soltar al levantar el dedo
 }, { passive: false });
+
+function handleInputAt(px, py) {
+  if (gameState !== 'LEVEL_SELECT') return;
+  for (const r of levelCardRects) {
+    if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
+      playSound('ui');
+      startLevelTransition(r.idx);
+      return;
+    }
+  }
+}
 
 // === CHEAT CODES (debug) ===
 window.addEventListener('keydown', (e) => {
@@ -1931,16 +2098,17 @@ window.addEventListener('keydown', (e) => {
       dbg('CHEAT', `Nivel ${lvl + 1} cargado directamente`);
     }
   }
-  // ESC: reiniciar juego completo
+  // ESC: volver a selección de nivel
   if (e.key === 'Escape') {
     falls = 0;
     currentLevel = 0;
     typewriterText = '';
     typewriterIdx  = 0;
     typewriterTimer = 0;
-    loadLevel(0);
-    gameState = 'INTRO';
-    dbg('CHEAT', 'Juego reiniciado');
+    gameState = 'LEVEL_SELECT';
+    levelSelectAnim = 0;
+    MusicEngine.crossfade(7);
+    dbg('CHEAT', 'Volviendo a selección de nivel');
   }
 });
 
@@ -1993,13 +2161,11 @@ function loadLevel(idx) {
 }
 
 function resetGame() {
-  MusicEngine.stop();
   currentLevel = 0;
   falls        = 0;
-  gameState    = 'INTRO';
-  typewriterText  = '';
-  typewriterIdx   = 0;
-  typewriterTimer = 0;
+  gameState    = 'LEVEL_SELECT';
+  levelSelectAnim = 0;
+  MusicEngine.crossfade(7); // música de menú
 }
 
 function killKael() {
@@ -2495,6 +2661,13 @@ function update(dt) {
     return;
   }
 
+  // Level select — solo anima partículas de fondo
+  if (gameState === 'LEVEL_SELECT') {
+    levelSelectAnim += dt * 0.016;
+    updateParticles(dt);
+    return;
+  }
+
   // Transición de nivel
   if (gameState === 'LEVEL_TRANSITION') {
     transitionAlpha += transitionDir * dt * 0.06;
@@ -2662,6 +2835,11 @@ function render() {
 
   if (gameState === 'INTRO') {
     renderIntroScreen();
+    return;
+  }
+
+  if (gameState === 'LEVEL_SELECT') {
+    renderLevelSelectScreen();
     return;
   }
 
