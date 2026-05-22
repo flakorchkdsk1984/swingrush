@@ -144,124 +144,130 @@ function an(x,y){ return {x,y,used:false}; }
 function sp(x,y,w,h=18){ return {x,y,w,h}; }
 
 const LEVELS = [
-  // ─── Nivel 1: EL VERTEDERO ────────────────────────────────────────────────
+  // ─── Nivel 1: EL VERTEDERO — Tutorial (muy fácil) ─────────────────────────
+  // Plataformas anchas, anchors bajos (cuerdas cortas=rápidas), sin obstáculos
   {
     name: 'EL VERTEDERO',
-    hint: 'TOCA PARA ENGANCHARTE',
-    startX: 160, startY: 436,
+    hint: 'TOCA PARA ENGANCHARTE • SUELTA PARA VOLAR',
+    startX: 160, startY: 440,
     platforms: [
-      pl(80,450,160), pl(300,475,140), pl(510,450,150),
-      pl(730,475,140), pl(940,450,150), pl(1160,475,140),
-      pl(1380,450,160), pl(1570,460,110),
+      pl(80,455,170), pl(295,455,160), pl(510,455,160),
+      pl(725,455,160), pl(940,455,160), pl(1155,455,160),
+      pl(1380,455,160), pl(1570,455,130),
     ],
     anchors: [
-      an(260,300), an(470,295), an(690,300),
-      an(910,295), an(1130,300), an(1350,295), an(1540,295),
+      an(258,300), an(468,300), an(678,300),
+      an(898,300), an(1118,300), an(1338,300), an(1540,300),
     ],
     spikes: [],
-    extraction: {x:1640,y:438,r:32},
-    worldW:1900, worldH:700, deathY:660,
+    extraction: {x:1650,y:440,r:32},
+    worldW:1850, worldH:700, deathY:650,
   },
-  // ─── Nivel 2: LOS PUENTES CAÍDOS ─────────────────────────────────────────
+  // ─── Nivel 2: LOS PUENTES CAÍDOS — Fácil (ligera progresión) ──────────────
+  // Anchors un poco más altos que L1 (y=270 vs 300), plataformas algo más estrechas
+  // Gaps similares al L1, sin pinchos — diferencia sutil pero aprendible
   {
     name: 'LOS PUENTES CAÍDOS',
     hint: 'MANTÉN EL RITMO',
-    startX: 135, startY: 406,
+    startX: 140, startY: 430,
     platforms: [
-      pl(60,420,150), pl(285,445,110), pl(495,415,120),
-      pl(705,445,110), pl(915,415,120), pl(1135,445,110),
-      pl(1355,415,120), pl(1575,445,110), pl(1795,415,130),
+      pl(60,445,160), pl(285,445,145), pl(505,445,145),
+      pl(720,445,145), pl(940,445,145), pl(1160,445,145),
+      pl(1375,445,145), pl(1590,445,130),
     ],
     anchors: [
-      an(240,225), an(450,220), an(665,225),
-      an(880,220), an(1100,225), an(1320,220),
-      an(1545,225), an(1755,220),
+      an(255,275), an(468,275), an(678,275),
+      an(898,275), an(1118,275), an(1338,275), an(1550,275),
     ],
     spikes: [],
-    extraction: {x:1930,y:393,r:32},
-    worldW:2150, worldH:700, deathY:660,
+    extraction: {x:1670,y:430,r:32},
+    worldW:1900, worldH:700, deathY:650,
   },
-  // ─── Nivel 3: LAS TORRES ─────────────────────────────────────────────────
+  // ─── Nivel 3: LAS TORRES — Medio (pendiente ascendente) ───────────────────
+  // Plataformas van subiendo, anchors más altos, se introduce 1er peligro al final
   {
     name: 'LAS TORRES',
-    hint: 'GANA ALTURA',
-    startX: 155, startY: 566,
+    hint: 'GANA ALTURA • CUIDADO CON LOS PINCHOS',
+    startX: 145, startY: 575,
     platforms: [
-      pl(80,580,150), pl(285,540,120), pl(485,500,120),
-      pl(695,460,120), pl(895,420,120), pl(1105,380,120),
-      pl(1315,340,120), pl(1525,310,120), pl(1725,340,120),
-      pl(1945,380,130), pl(2175,420,120),
+      pl(70,590,155), pl(280,555,135), pl(480,520,130),
+      pl(690,485,130), pl(895,450,130), pl(1105,415,125),
+      pl(1315,385,125), pl(1520,360,120),
+      pl(1730,385,130), pl(1950,420,140),
     ],
     anchors: [
-      an(245,375), an(445,335), an(645,295),
-      an(855,255), an(1065,215), an(1275,175),
-      an(1485,155), an(1685,180), an(1900,225),
-      an(2120,265),
+      an(245,390), an(445,360), an(650,325),
+      an(855,295), an(1065,260), an(1275,230),
+      an(1480,215), an(1690,245), an(1910,290),
     ],
-    spikes: [],
-    extraction: {x:2305,y:398,r:32},
-    worldW:2550, worldH:800, deathY:760,
+    // Solo 2 pinchos al final para introducir el concepto
+    spikes: [
+      sp(1315,367,22), sp(1400,367,22),
+    ],
+    extraction: {x:2080,y:395,r:32},
+    worldW:2300, worldH:800, deathY:760,
   },
-  // ─── Nivel 4: CAMPO MINADO ────────────────────────────────────────────────
+  // ─── Nivel 4: CAMPO MINADO — Difícil (anchors altos + pinchos frecuentes) ──
+  // Gaps mayores, anchors más altos (cuerdas largas), pinchos en zonas clave
   {
     name: 'CAMPO MINADO',
     hint: 'EVITA LOS PINCHOS',
-    startX: 135, startY: 406,
+    startX: 135, startY: 425,
     platforms: [
-      pl(60,420,150), pl(275,445,120), pl(485,420,120),
-      pl(695,445,120), pl(905,420,120), pl(1115,445,110),
-      pl(1325,420,120), pl(1545,445,110), pl(1755,420,130),
+      pl(55,440,150), pl(275,445,120), pl(490,440,120),
+      pl(710,445,120), pl(925,440,120), pl(1145,445,115),
+      pl(1365,440,120), pl(1585,445,110), pl(1800,440,125),
     ],
     anchors: [
-      an(230,230), an(440,225), an(650,230),
-      an(860,225), an(1070,230), an(1280,225),
-      an(1500,230), an(1710,225),
+      an(232,240), an(445,235), an(660,240),
+      an(876,235), an(1091,240), an(1308,235),
+      an(1530,240), an(1750,235),
     ],
     spikes: [
-      sp(275,427,22), sp(373,427,22),
-      sp(485,402,22), sp(583,402,22),
-      sp(695,427,22), sp(793,427,22),
-      sp(905,402,22), sp(1003,402,22),
-      sp(1115,427,20), sp(1205,427,20),
-      sp(1325,402,22), sp(1423,402,22),
-      sp(1545,427,20), sp(1635,427,20),
+      sp(275,427,22), sp(370,427,22),
+      sp(490,422,22), sp(583,422,22),
+      sp(710,427,22), sp(803,427,22),
+      sp(1145,427,20), sp(1238,427,20),
+      sp(1365,422,22), sp(1458,422,22),
+      sp(1585,427,20), sp(1678,427,20),
     ],
-    extraction: {x:1900,y:398,r:32},
+    extraction: {x:1930,y:415,r:32},
     worldW:2150, worldH:700, deathY:660,
   },
-  // ─── Nivel 5: LA CIUDADELA ────────────────────────────────────────────────
+  // ─── Nivel 5: LA CIUDADELA — Extremo (todo junto) ─────────────────────────
+  // Mapa largo, plataformas estrechas, anchors altos, pinchos densos, gaps grandes
   {
     name: 'LA CIUDADELA',
     hint: 'SIN RETORNO',
     startX: 155, startY: 476,
     platforms: [
-      pl(80,490,150), pl(285,460,110), pl(485,430,110),
-      pl(695,400,110), pl(905,430,110), pl(1115,460,110),
-      pl(1325,490,110), pl(1535,460,110), pl(1745,430,110),
-      pl(1955,400,110), pl(2165,430,110), pl(2375,460,110),
-      pl(2585,490,110), pl(2795,460,120), pl(3005,430,130),
+      pl(80,490,145), pl(290,462,108), pl(496,434,108),
+      pl(710,405,108), pl(920,434,108), pl(1134,462,108),
+      pl(1344,490,108), pl(1558,462,108), pl(1768,434,108),
+      pl(1978,405,108), pl(2192,434,108), pl(2402,462,108),
+      pl(2612,490,108), pl(2820,462,115), pl(3030,434,125),
     ],
     anchors: [
-      an(250,280), an(450,250), an(655,220),
-      an(870,230), an(1085,260), an(1295,285),
-      an(1500,255), an(1710,225), an(1925,205),
-      an(2140,235), an(2355,265), an(2565,295),
-      an(2775,265), an(2985,238),
+      an(255,285), an(456,255), an(660,225),
+      an(872,235), an(1088,265), an(1298,290),
+      an(1508,258), an(1716,228), an(1930,208),
+      an(2145,240), an(2360,268), an(2572,298),
+      an(2782,268), an(2990,242),
     ],
     spikes: [
-      sp(285,442,24), sp(371,442,24),
-      sp(485,412,24), sp(571,412,24),
-      sp(695,382,24), sp(781,382,24),
-      sp(905,412,24), sp(991,412,24),
-      sp(1535,442,24), sp(1621,442,24),
-      sp(1745,412,24), sp(1831,412,24),
-      sp(1955,382,24), sp(2041,382,24),
-      sp(2585,472,24), sp(2671,472,24),
-      sp(2795,442,24), sp(2881,442,24),
-      sp(3005,412,24), sp(3091,412,24),
+      sp(290,444,24), sp(380,444,24),
+      sp(496,416,24), sp(585,416,24),
+      sp(710,387,24), sp(798,387,24),
+      sp(920,416,24), sp(1008,416,24),
+      sp(1558,444,24), sp(1646,444,24),
+      sp(1768,416,24), sp(1856,416,24),
+      sp(1978,387,24), sp(2066,387,24),
+      sp(2612,472,24), sp(2700,472,24),
+      sp(2820,444,24), sp(2908,444,24),
+      sp(3030,416,24), sp(3118,416,24),
     ],
-    extraction: {x:3200,y:408,r:32},
-    worldW:3450, worldH:800, deathY:760,
+    extraction: {x:3220,y:412,r:32},
+    worldW:3460, worldH:800, deathY:760,
   },
 ];
 
