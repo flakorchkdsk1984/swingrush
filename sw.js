@@ -1,4 +1,4 @@
-const CACHE = 'swingrush-v1';
+const CACHE = 'swingrush-v3';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
