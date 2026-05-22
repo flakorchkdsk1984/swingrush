@@ -774,6 +774,288 @@ function startAmbient() {
   osc.start();
 }
 
+// === MUSIC ENGINE ===
+
+const MusicEngine = (function () {
+  const TRACKS = [
+    { // 0 — EL VERTEDERO: Bhairavi, melancholic
+      scale: [1, 9/8, 6/5, 4/3, 3/2, 8/5, 9/5], root: 110, bpm: 72,
+      droneFreq: 73.4, droneGain: 0.06,
+      melody: [0, 2, 1, 0, 4, 2, 0, -1],
+      instr: 'sitar', tablaStyle: 'slow'
+    },
+    { // 1 — LOS PUENTES CAÍDOS: Kafi, urgent
+      scale: [1, 9/8, 32/27, 4/3, 3/2, 16/9, 16/9], root: 110, bpm: 95,
+      droneFreq: 110, droneGain: 0.05,
+      melody: [0, 1, 3, 2, 4, 3, 1, 0, 2, 4, 3, 1],
+      instr: 'oud', tablaStyle: 'fast'
+    },
+    { // 2 — LAS TORRES: Yaman, ethereal
+      scale: [1, 9/8, 5/4, 45/32, 3/2, 5/3, 15/8], root: 110, bpm: 60,
+      droneFreq: 110, droneGain: 0.04,
+      melody: [0, 2, 4, 6, 5, 4, 2, 1, 0, 3, 4, 2],
+      instr: 'bansuri', tablaStyle: 'soft'
+    },
+    { // 3 — CAMPO MINADO: Bhairav, tense
+      scale: [1, 16/15, 5/4, 4/3, 3/2, 8/5, 15/8], root: 110, bpm: 108,
+      droneFreq: 82.4, droneGain: 0.07,
+      melody: [0, -1, 2, -1, 1, 3, -1, 2, 0, -1, 4, 2],
+      instr: 'sitar', tablaStyle: 'hard'
+    },
+    { // 4 — LA CIUDADELA: Darbari, epic
+      scale: [1, 9/8, 6/5, 4/3, 3/2, 8/5, 9/5], root: 110, bpm: 84,
+      droneFreq: 55, droneGain: 0.08,
+      melody: [0, 2, 4, 3, 2, 4, 6, 5, 4, 2, 0, 2, 3, 2],
+      instr: 'sitar2', tablaStyle: 'full'
+    }
+  ];
+
+  let masterGain = null;
+  let droneNodes = [];
+  let seqState   = null;
+  let activeLevel = -1;
+  let api;
+
+  function scaleFreq(track, deg) {
+    if (deg < 0) return null;
+    const oct = Math.floor(deg / 7);
+    return track.root * track.scale[deg % 7] * Math.pow(2, oct);
+  }
+
+  function createDrone(freq, gainVal) {
+    if (!audioCtx || !masterGain) return [];
+    const nodes = [];
+    const mg = audioCtx.createGain();
+    mg.gain.value = gainVal;
+    const flt = audioCtx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = freq * 5;
+    mg.connect(flt); flt.connect(masterGain);
+    const dets = [0, 3, -4, 7];
+    [freq, freq * 2, freq * 3, freq * 0.5].forEach(function(f, i) {
+      const o = audioCtx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      o.detune.value = dets[i];
+      const g = audioCtx.createGain();
+      g.gain.value = i === 0 ? 1 : i === 3 ? 0.4 : 0.25;
+      o.connect(g); g.connect(mg);
+      o.start();
+      nodes.push(o);
+    });
+    nodes.push(mg, flt);
+    return nodes;
+  }
+
+  function tablaHit(time, type, vel) {
+    if (!audioCtx || !masterGain) return;
+    if (type === 'bayan') {
+      const n = makeNoise(0.15);
+      const s = audioCtx.createBufferSource(); s.buffer = n;
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0.25 * vel, time);
+      ng.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+      s.connect(ng); ng.connect(masterGain); s.start(time);
+      const o = audioCtx.createOscillator(); o.type = 'sine';
+      const og = audioCtx.createGain();
+      o.frequency.setValueAtTime(180, time);
+      o.frequency.exponentialRampToValueAtTime(55, time + 0.15);
+      og.gain.setValueAtTime(0.45 * vel, time);
+      og.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+      o.connect(og); og.connect(masterGain);
+      o.start(time); o.stop(time + 0.16);
+    } else {
+      const n = makeNoise(0.08);
+      const s = audioCtx.createBufferSource(); s.buffer = n;
+      const flt = audioCtx.createBiquadFilter();
+      flt.type = 'bandpass'; flt.frequency.value = 1400; flt.Q.value = 3;
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0.18 * vel, time);
+      ng.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+      s.connect(flt); flt.connect(ng); ng.connect(masterGain); s.start(time);
+      const o = audioCtx.createOscillator(); o.type = 'sine';
+      const og = audioCtx.createGain();
+      o.frequency.setValueAtTime(420, time);
+      o.frequency.exponentialRampToValueAtTime(200, time + 0.08);
+      og.gain.setValueAtTime(0.3 * vel, time);
+      og.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+      o.connect(og); og.connect(masterGain);
+      o.start(time); o.stop(time + 0.09);
+    }
+  }
+
+  function playSitar(freq, time, dur, bright) {
+    if (!audioCtx || !masterGain) return;
+    const o = audioCtx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.value = freq;
+    const lfo = audioCtx.createOscillator();
+    const lfog = audioCtx.createGain();
+    lfo.frequency.value = 5.5; lfog.gain.value = freq * 0.003;
+    lfo.connect(lfog); lfog.connect(o.frequency);
+    const flt = audioCtx.createBiquadFilter();
+    flt.type = 'peaking'; flt.frequency.value = freq * (bright ? 3 : 2);
+    flt.gain.value = bright ? 9 : 5; flt.Q.value = 1.2;
+    const dly = audioCtx.createDelay(0.5); dly.delayTime.value = 0.1;
+    const dfb = audioCtx.createGain(); dfb.gain.value = 0.18;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.001, time);
+    g.gain.linearRampToValueAtTime(0.38, time + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    o.connect(flt); flt.connect(g); g.connect(masterGain);
+    flt.connect(dly); dly.connect(dfb); dfb.connect(dly); dfb.connect(masterGain);
+    lfo.start(time); o.start(time);
+    o.stop(time + dur + 0.05); lfo.stop(time + dur + 0.05);
+  }
+
+  function playBansuri(freq, time, dur) {
+    if (!audioCtx || !masterGain) return;
+    const o = audioCtx.createOscillator(); o.type = 'sine';
+    o.frequency.value = freq * 2; // flute register
+    const lfo = audioCtx.createOscillator();
+    const lfog = audioCtx.createGain();
+    lfo.frequency.value = 4; lfog.gain.value = 0.012;
+    lfo.connect(lfog); lfog.connect(o.frequency);
+    const hpf = audioCtx.createBiquadFilter();
+    hpf.type = 'highpass'; hpf.frequency.value = 250;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.001, time);
+    g.gain.linearRampToValueAtTime(0.32, time + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    o.connect(hpf); hpf.connect(g); g.connect(masterGain);
+    lfo.start(time); o.start(time);
+    o.stop(time + dur + 0.05); lfo.stop(time + dur + 0.05);
+  }
+
+  function playOud(freq, time, dur) {
+    if (!audioCtx || !masterGain) return;
+    const o1 = audioCtx.createOscillator(); o1.type = 'sawtooth';
+    o1.frequency.value = freq;
+    const o2 = audioCtx.createOscillator(); o2.type = 'triangle';
+    o2.frequency.value = freq;
+    const flt = audioCtx.createBiquadFilter();
+    flt.type = 'lowpass'; flt.frequency.value = freq * 3.5; flt.Q.value = 0.8;
+    const g2 = audioCtx.createGain(); g2.gain.value = 0.45;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.001, time);
+    g.gain.linearRampToValueAtTime(0.42, time + 0.007);
+    g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    o1.connect(flt); o2.connect(g2); g2.connect(flt);
+    flt.connect(g); g.connect(masterGain);
+    o1.start(time); o2.start(time);
+    o1.stop(time + dur + 0.05); o2.stop(time + dur + 0.05);
+  }
+
+  function scheduleTabla(track, time, beat) {
+    const s = track.tablaStyle;
+    const bd = 60 / track.bpm;
+    if (s === 'slow') {
+      if (beat % 4 === 0) { tablaHit(time, 'bayan', 1.0); tablaHit(time + bd * 0.5, 'dayan', 0.6); }
+      else if (beat % 4 === 2) { tablaHit(time, 'dayan', 0.75); }
+    } else if (s === 'fast') {
+      tablaHit(time, beat % 2 === 0 ? 'bayan' : 'dayan', beat % 4 === 0 ? 1.0 : 0.65);
+      tablaHit(time + bd * 0.5, 'dayan', 0.45);
+    } else if (s === 'soft') {
+      if (beat % 4 === 0) tablaHit(time, 'bayan', 0.7);
+      if (beat % 2 === 0) tablaHit(time + bd * 0.75, 'dayan', 0.4);
+    } else if (s === 'hard') {
+      tablaHit(time, beat % 4 === 0 ? 'bayan' : 'dayan', beat % 2 === 0 ? 1.0 : 0.5);
+      if (beat % 3 !== 1) tablaHit(time + bd * 0.33, 'dayan', 0.55);
+    } else { // full
+      tablaHit(time, beat % 4 === 0 ? 'bayan' : 'dayan', 1.0);
+      tablaHit(time + bd * 0.25, 'dayan', 0.5);
+      tablaHit(time + bd * 0.5,  beat % 4 === 2 ? 'bayan' : 'dayan', 0.75);
+      tablaHit(time + bd * 0.75, 'dayan', 0.45);
+    }
+  }
+
+  function runScheduler() {
+    if (!seqState || seqState.stopped || !audioCtx) return;
+    const track = TRACKS[seqState.level];
+    const beatDur = 60 / track.bpm;
+    const until = audioCtx.currentTime + 0.15;
+    while (seqState.nextNoteTime < until) {
+      const t = seqState.nextNoteTime;
+      const pat = seqState.noteIdx % track.melody.length;
+      const deg = track.melody[pat];
+      if (deg >= 0) {
+        const freq = scaleFreq(track, deg);
+        if (freq) {
+          if (track.instr === 'bansuri') playBansuri(freq, t, beatDur * 0.85);
+          else if (track.instr === 'oud')   playOud(freq, t, beatDur * 0.8);
+          else if (track.instr === 'sitar2') { playSitar(freq, t, beatDur * 0.9, true); playSitar(freq * 1.5, t + beatDur * 0.12, beatDur * 0.6, false); }
+          else playSitar(freq, t, beatDur * 0.85, false);
+        }
+      }
+      scheduleTabla(track, t, seqState.noteIdx);
+      seqState.noteIdx++;
+      seqState.nextNoteTime += beatDur;
+    }
+    seqState.timerId = setTimeout(runScheduler, 25);
+  }
+
+  function stopAll() {
+    if (seqState) {
+      seqState.stopped = true;
+      clearTimeout(seqState.timerId);
+      seqState = null;
+    }
+    droneNodes.forEach(function(n) { try { if (n.stop) n.stop(); else n.disconnect(); } catch(e) {} });
+    droneNodes = [];
+  }
+
+  api = {
+    start: function(levelIndex) {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      stopAll();
+      if (!masterGain) {
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = 0;
+        masterGain.connect(audioCtx.destination);
+      }
+      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 1.2);
+      const track = TRACKS[levelIndex];
+      if (!track) return;
+      droneNodes = createDrone(track.droneFreq, track.droneGain);
+      seqState = { level: levelIndex, noteIdx: 0, nextNoteTime: audioCtx.currentTime + 0.1, stopped: false, timerId: null };
+      runScheduler();
+      activeLevel = levelIndex;
+    },
+    stop: function() {
+      if (!audioCtx) return;
+      stopAll();
+      if (masterGain) {
+        masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
+        masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+      }
+      activeLevel = -1;
+    },
+    crossfade: function(newLevel) {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (newLevel === activeLevel) return; // same level, keep playing
+      if (activeLevel === -1 || !masterGain) { api.start(newLevel); return; }
+      const now = audioCtx.currentTime;
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+      masterGain.gain.linearRampToValueAtTime(0, now + 1.0);
+      setTimeout(function() { stopAll(); masterGain = null; api.start(newLevel); }, 1100);
+    },
+    deathFilter: function() {
+      // Brief gain duck on death
+      if (!masterGain || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+      masterGain.gain.linearRampToValueAtTime(0.04, now + 0.4);
+      masterGain.gain.linearRampToValueAtTime(0.35, now + 1.8);
+    }
+  };
+  return api;
+})();
+
 // === RENDER — FONDO ===
 
 // Siluetas de edificios para paralaje (3 capas)
@@ -1548,6 +1830,7 @@ function startLevelTransition(idx) {
 }
 
 function loadLevel(idx) {
+  MusicEngine.crossfade(idx);
   const lev  = LEVELS[idx];
   kael.x     = lev.startX;
   // Kael empieza SOBRE el primer anchor (en el aire, cayendo)
@@ -1573,6 +1856,7 @@ function loadLevel(idx) {
 }
 
 function resetGame() {
+  MusicEngine.stop();
   currentLevel = 0;
   falls        = 0;
   gameState    = 'INTRO';
@@ -1588,6 +1872,7 @@ function killKael() {
   spawnDeathParticles(kael.x, kael.y);
   triggerShake(20, 9);
   playSound('death');
+  MusicEngine.deathFilter();
 }
 
 function update(dt) {
